@@ -3,7 +3,7 @@
 ## [0.3.286](https://github.com/UKGovernmentBEIS/inspect_ai/compare/0.3.285...0.3.286) (2026-10-27)
 
 
-### ⚠ BREAKING CHANGES
+### Breaking Changes
 
 * recomputing, editing or recovering a log no longer imports files or builds models it names ([#6007](https://github.com/UKGovernmentBEIS/inspect_ai/issues/6007))
 
