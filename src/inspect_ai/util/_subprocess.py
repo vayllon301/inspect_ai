@@ -555,12 +555,15 @@ class CircularByteBuffer:
         self._chunks.append(data)
         self._total_bytes += len(data)
 
-        # Discard oldest chunks until under limit
-        while self._total_bytes > self._max_bytes and len(self._chunks) > 1:
+        # Discard oldest chunks that fall entirely before the last max_bytes
+        while (
+            len(self._chunks) > 1
+            and self._total_bytes - len(self._chunks[0]) >= self._max_bytes
+        ):
             removed = self._chunks.popleft()
             self._total_bytes -= len(removed)
 
-        # If single chunk still over limit, truncate from front
+        # If still over limit, truncate the oldest chunk from front
         if self._total_bytes > self._max_bytes and self._chunks:
             excess = self._total_bytes - self._max_bytes
             self._chunks[0] = self._chunks[0][excess:]

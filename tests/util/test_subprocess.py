@@ -16,7 +16,7 @@ from test_helpers.utils import skip_if_trio
 
 import inspect_ai.util._subprocess as _subprocess_mod
 from inspect_ai.util import subprocess
-from inspect_ai.util._subprocess import _log_stream, run_subprocess
+from inspect_ai.util._subprocess import CircularByteBuffer, _log_stream, run_subprocess
 from inspect_ai.util._subprocess import logger as _subprocess_logger
 
 
@@ -346,9 +346,7 @@ for i in range(10):
         text=False,
     )
     assert result.success is True
-    # Should contain trailing digits (7s, 8s, 9s), not leading (0s, 1s)
-    assert result.stdout[-100:] == b"9" * 100
-    assert b"0" * 50 not in result.stdout  # Leading 0s should be gone
+    assert result.stdout == b"7" * 50 + b"8" * 100 + b"9" * 100
 
 
 @pytest.mark.anyio
@@ -393,6 +391,25 @@ async def test_subprocess_output_limit_no_limit():
     )
     assert result.success is True
     assert len(result.stdout.strip()) == 1000
+
+
+@pytest.mark.parametrize(
+    "chunks",
+    [
+        [b"0123456789abcdef", b"XY"],
+        [b"aaaa", b"bbbb", b"cccc"],
+        [b"abcde", b"fghij", b"k"],
+        [b"a", b"", b"bc", b"0123456789", b"d"],
+    ],
+)
+def test_circular_byte_buffer_keeps_most_recent_bytes(chunks: list[bytes]) -> None:
+    """Each write keeps exactly the last `max_bytes` written, across chunks."""
+    buffer = CircularByteBuffer(10)
+    written = b""
+    for chunk in chunks:
+        buffer.write(chunk)
+        written += chunk
+        assert buffer.getvalue() == written[-10:]
 
 
 async def _read_all(stream: ByteReceiveStream) -> bytes:
