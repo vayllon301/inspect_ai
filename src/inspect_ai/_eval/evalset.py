@@ -2134,7 +2134,7 @@ def resolve_solver(
 # set) does not warrant a bump — prove it by exercising the new field in
 # tests/test_task_identifier_version.py against the current version's pinned
 # hash.
-TASK_IDENTIFIER_VERSION = 3
+TASK_IDENTIFIER_VERSION = 4
 
 
 def task_identifier(

@@ -1,3 +1,4 @@
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import cast
 
 import pytest
@@ -348,6 +349,40 @@ def test_repr_params_serialization() -> None:
     assert result["compaction"]["keep_thinking_turns"] == 1
     assert result["compaction"]["keep_tool_inputs"] is True
     assert result["compaction"]["exclude_tools"] is None
+
+
+def test_path_and_set_params_serialization() -> None:
+    """Test that path and set arguments are recorded in full, not by name."""
+
+    def my_task(
+        data_dir: Path,
+        pure_dir: PurePosixPath,
+        windows_dir: PureWindowsPath,
+        subjects: set[str],
+        ids: frozenset[int],
+        files: set[Path],
+        mixed: set[int | str],
+    ) -> None: ...
+
+    result = _extract(
+        my_task,
+        data_dir=Path("/data/en/v2"),
+        pure_dir=PurePosixPath("/data/fr/v2"),
+        windows_dir=PureWindowsPath("C:/data/v2"),
+        subjects={"physics", "math"},
+        ids=frozenset({3, 1, 2}),
+        files={Path("/b.json"), Path("/a.json")},
+        mixed={1, "a"},
+    )
+
+    assert result["data_dir"] == "/data/en/v2"
+    assert result["pure_dir"] == "/data/fr/v2"
+    assert result["windows_dir"] == "C:\\data\\v2"
+    assert result["subjects"] == ["math", "physics"]
+    assert result["ids"] == [1, 2, 3]
+    assert result["files"] == ["/a.json", "/b.json"]
+    # items that can't be sorted are recorded in iteration order
+    assert sorted(result["mixed"], key=str) == [1, "a"]
 
 
 def test_repr_params_all_strategies() -> None:

@@ -848,3 +848,23 @@ def test_read_eval_log_samples_after_retry_changes_id_type(
 
     samples = list(read_eval_log_samples(retried.location))
     assert [(sample.id, sample.epoch) for sample in samples] == [(1, 1)]
+
+
+@task
+def retry_path_and_set_args_task(data_dir: Path, subjects: set[str]) -> Task:
+    return Task(dataset=[Sample(input="hi")])
+
+
+def test_eval_retry_replays_path_and_set_task_args(tmp_path: Path) -> None:
+    log = eval(
+        retry_path_and_set_args_task(Path("/data/en/v2"), {"physics", "math"}),
+        model="mockllm/model",
+        log_dir=str(tmp_path),
+    )[0]
+    expected = {"data_dir": "/data/en/v2", "subjects": ["math", "physics"]}
+    assert log.eval.task_args_passed == expected
+
+    retried = eval_retry(log, log_dir=str(tmp_path))[0]
+    assert retried.status == "success"
+    # task_args records the arguments the retried task was created with
+    assert retried.eval.task_args == expected

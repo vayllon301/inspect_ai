@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from inspect_ai import Task, task
 from inspect_ai._eval.evalset import (
     TASK_IDENTIFIER_VERSION,
@@ -23,6 +25,9 @@ _EXPECTED_TASK_IDENTIFIERS: dict[int, str] = {
     # a version bump: excluding a field no prior config could set changes no
     # existing hash (the fixture sets it to prove the exclusion holds).
     3: "tests/test_task_identifier_version.py@version_test_task#44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a/mockllm/model/7d262bcd59b6c9bd5c8acdf7c3f1342cede8c626a416c5b4b4a77a2e7ade7e99",
+    # 4 records Path and set task arguments in full rather than by name (the
+    # fixture passes both)
+    4: "tests/test_task_identifier_version.py@version_test_task#e8596cf9ca16f60cc3d512a6ef66a184d78bb8d4016e1e3c48e7919d71ae0022/mockllm/model/7d262bcd59b6c9bd5c8acdf7c3f1342cede8c626a416c5b4b4a77a2e7ade7e99",
 }
 
 
@@ -35,7 +40,7 @@ def _create_resolved_task_with_all_fields():
     Fields exercised:
       - task_file (via resolve_tasks with a file path)
       - task_name (via @task decorator name)
-      - task_args (non-empty dict, SHA256 hashed)
+      - task_args (non-empty dict including Path and set values, SHA256 hashed)
       - model name (str(model))
       - model_generate_config (model.config with non-default temperature)
       - model_roles (non-empty, hashed)
@@ -70,7 +75,9 @@ def _create_resolved_task_with_all_fields():
     )
 
     @task
-    def version_test_task(task_arg: str = "test_value"):
+    def version_test_task(
+        data_dir: Path, subjects: set[str], task_arg: str = "test_value"
+    ):
         return Task(
             dataset=[Sample(input="test input", target="test target")],
             solver=[generate()],
@@ -84,7 +91,7 @@ def _create_resolved_task_with_all_fields():
             cost_limit=0.5,
         )
 
-    t = version_test_task()
+    t = version_test_task(data_dir=Path("/data/en/v2"), subjects={"physics", "math"})
     task_with(t, model=model, model_roles={"scorer": scorer_model})
     resolved = resolve_tasks([t], {}, model, None, None, None)
     return resolved[0]

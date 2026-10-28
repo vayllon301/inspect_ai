@@ -217,6 +217,30 @@ def test_eval_set_identifiers() -> None:
         pass
 
 
+def test_eval_set_path_and_set_task_args(tmp_path: Path) -> None:
+    @task
+    def path_args_task(data_dir: Path, subjects: set[str]) -> Task:
+        return Task(dataset=[Sample(input="Say hello", target="hello")])
+
+    def run() -> list[EvalLog]:
+        success, logs = eval_set(
+            tasks=[
+                path_args_task(Path("/data/en/v2"), {"physics", "math"}),
+                path_args_task(Path("/data/fr/v2"), {"physics", "math"}),
+            ],
+            log_dir=str(tmp_path),
+            model="mockllm/model",
+        )
+        assert success
+        return logs
+
+    # tasks that differ only in a path's parent directory are distinct
+    first = run()
+    # and a rerun matches them to the logs they wrote rather than rerunning them
+    second = run()
+    assert {log.eval.eval_id for log in second} == {log.eval.eval_id for log in first}
+
+
 def test_latest_completed_task_eval_logs() -> None:
     # cleanup previous tests
     TEST_EVAL_SET_PATH = Path("tests/test_eval_set")

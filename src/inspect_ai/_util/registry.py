@@ -4,6 +4,7 @@ import inspect
 import sys
 from contextlib import contextmanager
 from inspect import get_annotations, isclass
+from pathlib import PurePath
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -250,6 +251,19 @@ def extract_named_params(
             )
         elif isinstance(named_params[param], str | int | float | str | bool | None):
             named_params[param] = named_params[param]
+        elif isinstance(named_params[param], PurePath):
+            named_params[param] = str(named_params[param])
+        elif isinstance(named_params[param], set | frozenset):
+            items = to_jsonable_python(
+                list(named_params[param]),
+                fallback=lambda x: getattr(x, "__name__", None),
+            )
+            # sorted (when orderable) so the logged value (and eval set task
+            # identifier) doesn't depend on hash order
+            try:
+                named_params[param] = sorted(items)
+            except TypeError:
+                named_params[param] = items
         else:
             named_params[param] = (
                 getattr(named_params[param], "name", None)

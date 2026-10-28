@@ -354,7 +354,7 @@ def test_eval_set_capture_schema_stability() -> None:
         set(EvalSetCapture.model_fields.keys())
         == _EXPECTED_CAPTURE_FIELDS[EVAL_SET_CAPTURE_VERSION]
     )
-    # empty task args hash (also pinned in test_task_identifier_version.py)
+    # empty task args hash
     assert (
         task_args_hash({})
         == "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
