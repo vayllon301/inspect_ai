@@ -168,6 +168,7 @@ class ToolDef:
             metadata={
                 TOOL_PARALLEL: self.parallel,
                 TOOL_VIEWER: self.viewer,
+                TOOL_MODEL_INPUT: self.model_input,
                 TOOL_MAX_OUTPUT: self.max_output,
                 TOOL_OPTIONS: self.options,
             },

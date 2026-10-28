@@ -2,10 +2,12 @@ import pytest
 
 from inspect_ai import Task, eval
 from inspect_ai.dataset import Sample
-from inspect_ai.model import ModelOutput, get_model
+from inspect_ai.event import ModelEvent
+from inspect_ai.model import ChatMessageTool, ModelOutput, get_model
 from inspect_ai.scorer import match
 from inspect_ai.solver import generate, use_tools
-from inspect_ai.tool import ToolDef, tool
+from inspect_ai.tool import Content, ToolDef, tool
+from inspect_ai.tool._tool_call import ToolCallModelInputHints
 
 
 @tool(prompt="Use this tool when addition is required.")
@@ -78,6 +80,52 @@ def test_tool_def_max_output_round_trips() -> None:
         max_output=0,
     )
     assert ToolDef(tool_def.as_tool()).max_output == 0
+
+
+def test_tool_def_model_input_applied_through_use_tools() -> None:
+    model = get_model(
+        "mockllm/model",
+        custom_outputs=[
+            ModelOutput.for_tool_call(
+                "mockllm/model",
+                tool_name="lookup",
+                tool_arguments={"query": "x"},
+            ),
+            ModelOutput.from_content("mockllm/model", content="done"),
+        ],
+    )
+
+    async def lookup(query: str) -> str:
+        return "full result"
+
+    def hide_result(
+        index: int,
+        total: int,
+        content: str | list[Content],
+        hints: ToolCallModelInputHints,
+    ) -> str | list[Content]:
+        return "[hidden]"
+
+    lookup_tool = ToolDef(
+        tool=lookup,
+        name="lookup",
+        description="Look something up",
+        parameters={"query": "The query"},
+        model_input=hide_result,
+    )
+
+    task = Task(
+        dataset=[Sample(input="Look up x")],
+        solver=[use_tools(lookup_tool), generate()],
+    )
+
+    log = eval(task, model=model)[0]
+    assert log.status == "success"
+    assert log.samples
+    model_events = [e for e in log.samples[0].events if isinstance(e, ModelEvent)]
+    tool_message = model_events[-1].input[-1]
+    assert isinstance(tool_message, ChatMessageTool)
+    assert tool_message.content == "[hidden]"
 
 
 def test_tool_max_output_declaration_inherited_by_outer_tool() -> None:
