@@ -888,7 +888,7 @@ async def emit_before_model_generate(
         eval_set_id=active.eval_set_id if active else None,
         run_id=active.run_id if active else None,
         eval_id=active.eval_id if active else None,
-        sample_id=active.id if active else None,
+        sample_id=active.sample_uuid if active else None,
         task_name=active.task if active else None,
     )
     await _emit_to_all(lambda hook: hook.on_before_model_generate(data))

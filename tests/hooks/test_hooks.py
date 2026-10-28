@@ -444,6 +444,24 @@ def test_hooks_sample_uuid_stable_multiple_samples_with_retries(
     assert starts == ends
 
 
+def test_before_model_generate_sample_id_matches_sample_hooks(
+    mock_hooks: MockHooks,
+) -> None:
+    log = eval(
+        Task(dataset=[Sample("sample_1")], solver=_generate_then_fail_once_solver()),
+        model="mockllm/model",
+        retry_on_error=1,
+    )[0]
+
+    assert log.samples is not None
+    sample_id = mock_hooks.sample_init_events[0].sample_id
+    assert sample_id == log.samples[0].uuid
+    # one generate per attempt
+    assert len(mock_hooks.before_model_generate_events) == 2
+    for before_gen in mock_hooks.before_model_generate_events:
+        assert before_gen.sample_id == sample_id
+
+
 def test_attempt_hooks_with_retries_then_success(mock_hooks: MockHooks) -> None:
     eval(
         Task(dataset=[Sample("sample_1")], solver=_fail_n_times_solver(3)),
@@ -875,6 +893,22 @@ def _fail_n_times_solver(target_failures: int) -> Solver:
         attempts += 1
         if attempts < target_failures:
             raise RuntimeError(f"Simulated failure {attempts}")
+        return state
+
+    return solve
+
+
+@solver
+def _generate_then_fail_once_solver() -> Solver:
+    """Generates on every attempt, and fails after the first generate."""
+    attempts = 0
+
+    async def solve(state: TaskState, generate: Generate) -> TaskState:
+        nonlocal attempts
+        attempts += 1
+        state = await generate(state)
+        if attempts == 1:
+            raise RuntimeError("Simulated failure")
         return state
 
     return solve
