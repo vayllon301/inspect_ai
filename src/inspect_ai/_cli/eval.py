@@ -838,6 +838,7 @@ def eval_options(func: Callable[..., Any]) -> Callable[..., click.Context]:
         "--logprobs",
         type=bool,
         is_flag=True,
+        default=None,
         help="Return log probabilities of the output tokens. OpenAI, Google, TogetherAI, Huggingface, llama-cpp-python, and vLLM only.",
         envvar="INSPECT_EVAL_LOGPROBS",
     )
@@ -857,7 +858,9 @@ def eval_options(func: Callable[..., Any]) -> Callable[..., click.Context]:
         "--parallel-tool-calls/--no-parallel-tool-calls",
         type=bool,
         is_flag=True,
-        default=True,
+        default=None,
+        # without this, click 8.2.1 reads any value of the envvar as True
+        flag_value=False,
         help="Whether to enable parallel function calling during tool use (defaults to True) OpenAI and Groq only.",
         envvar="INSPECT_EVAL_PARALLEL_TOOL_CALLS",
     )
@@ -865,7 +868,9 @@ def eval_options(func: Callable[..., Any]) -> Callable[..., click.Context]:
         "--internal-tools/--no-internal-tools",
         type=bool,
         is_flag=True,
-        default=True,
+        default=None,
+        # without this, click 8.2.1 reads any value of the envvar as True
+        flag_value=False,
         help="Whether to automatically map tools to model internal implementations (e.g. 'computer' for anthropic).",
         envvar="INSPECT_EVAL_INTERNAL_TOOLS",
     )

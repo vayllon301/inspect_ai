@@ -1,10 +1,12 @@
 import os
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
 import pytest
+import yaml
 from click.testing import CliRunner, Result
 from pydantic import ValidationError
 
@@ -20,7 +22,7 @@ from inspect_ai._util.error import PrerequisiteError
 from inspect_ai.approval._policy import ApprovalPolicyConfig
 from inspect_ai.log import EvalLog
 from inspect_ai.log._file import list_eval_logs, read_eval_log
-from inspect_ai.model import get_model
+from inspect_ai.model import GenerateConfig, get_model
 from inspect_ai.solver import solver
 from inspect_ai.util._limit import TokenLimit
 
@@ -150,9 +152,10 @@ def test_eval_config_task_cli():
         check_log(log, "green", check_model_roles=True)
 
 
-def test_eval_generate_config_cli():
+@pytest.mark.parametrize("run_cli", [run_eval_cli, run_eval_set_cli])
+def test_eval_generate_config_cli(run_cli: Callable[[list[str]], Result]) -> None:
     with tempfile.TemporaryDirectory() as log_dir:
-        result = run_eval_cli(
+        result = run_cli(
             [
                 "tests/test_eval_config.py@eval_config_task",
                 "--generate-config",
@@ -172,6 +175,106 @@ def test_eval_generate_config_cli():
         # these should come from the config file
         assert log.plan.config.max_tokens == 512
         assert log.plan.config.seed == 42
+        assert log.plan.config.parallel_tool_calls is False
+        assert log.plan.config.internal_tools is False
+        assert log.plan.config.logprobs is True
+
+
+# what each boolean flag sets in the generate config
+GENERATE_CONFIG_FLAGS = {
+    "--parallel-tool-calls": ("parallel_tool_calls", None),
+    "--no-parallel-tool-calls": ("parallel_tool_calls", False),
+    "--internal-tools": ("internal_tools", None),
+    "--no-internal-tools": ("internal_tools", False),
+    "--logprobs": ("logprobs", True),
+}
+
+
+@pytest.mark.parametrize(
+    "generate_config",
+    [
+        None,
+        {"parallel_tool_calls": False, "internal_tools": False, "logprobs": True},
+        {"parallel_tool_calls": True, "internal_tools": True, "logprobs": False},
+    ],
+    ids=["no file", "file off", "file on"],
+)
+@pytest.mark.parametrize(
+    "parallel_tool_calls", [None, "--parallel-tool-calls", "--no-parallel-tool-calls"]
+)
+@pytest.mark.parametrize(
+    "internal_tools", [None, "--internal-tools", "--no-internal-tools"]
+)
+@pytest.mark.parametrize("logprobs", [None, "--logprobs"])
+def test_eval_generate_config_cli_boolean_flags(
+    generate_config: dict[str, bool] | None,
+    parallel_tool_calls: str | None,
+    internal_tools: str | None,
+    logprobs: str | None,
+    tmp_path: Path,
+) -> None:
+    """A boolean flag overrides `--generate-config` only when it is given.
+
+    The enabling flags, `--parallel-tool-calls` and `--internal-tools`, set
+    `None` (the provider default) rather than `True`.
+    """
+    flags = [flag for flag in (parallel_tool_calls, internal_tools, logprobs) if flag]
+    cli_args = ["tests/test_eval_config.py@eval_config_task", *flags]
+    expected: dict[str, bool | None] = dict(generate_config or {})
+    if generate_config is not None:
+        config_file = tmp_path / "generate_config.yaml"
+        config_file.write_text(yaml.safe_dump(generate_config))
+        cli_args += ["--generate-config", config_file.as_posix()]
+    for flag in flags:
+        key, value = GENERATE_CONFIG_FLAGS[flag]
+        expected[key] = value
+
+    captured: dict[str, Any] = {}
+
+    def record(*args: Any, **kwargs: Any) -> list[EvalLog]:
+        captured.update(kwargs)
+        return []
+
+    with patch.object(cli_eval, "eval", record):
+        result = run_eval_cli([*cli_args, "--log-dir", tmp_path.as_posix()])
+    assert_cli_success(result)
+    config = GenerateConfig(
+        **{k: v for k, v in captured.items() if k in GenerateConfig.model_fields}
+    )
+    expected_config = GenerateConfig.model_validate(expected)
+    assert config.model_dump_json() == expected_config.model_dump_json()
+
+
+@pytest.mark.parametrize(
+    "variable,value,key,expected",
+    [
+        ("INSPECT_EVAL_PARALLEL_TOOL_CALLS", "false", "parallel_tool_calls", False),
+        ("INSPECT_EVAL_PARALLEL_TOOL_CALLS", "true", "parallel_tool_calls", None),
+        ("INSPECT_EVAL_INTERNAL_TOOLS", "false", "internal_tools", False),
+        ("INSPECT_EVAL_INTERNAL_TOOLS", "true", "internal_tools", None),
+        ("INSPECT_EVAL_LOGPROBS", "true", "logprobs", True),
+    ],
+)
+def test_eval_generate_config_boolean_flags_from_env(
+    variable: str, value: str, key: str, expected: bool | None, tmp_path: Path
+) -> None:
+    captured: dict[str, Any] = {}
+
+    def record(*args: Any, **kwargs: Any) -> list[EvalLog]:
+        captured.update(kwargs)
+        return []
+
+    with patch.object(cli_eval, "eval", record):
+        result = run_eval_cli(
+            [
+                "tests/test_eval_config.py@eval_config_task",
+                "--log-dir",
+                tmp_path.as_posix(),
+            ],
+            env={variable: value},
+        )
+    assert_cli_success(result)
+    assert captured[key] is expected
 
 
 MODEL_SPECS = [

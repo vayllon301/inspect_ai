@@ -1,3 +1,6 @@
 temperature: 0.5
 max_tokens: 512
 seed: 42
+parallel_tool_calls: false
+internal_tools: false
+logprobs: true
