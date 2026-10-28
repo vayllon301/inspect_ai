@@ -65,6 +65,8 @@ def test_bare_time_rejected() -> None:
         ("token:2m", 2_000_000),
         ("token:1b", 1_000_000_000),
         ("token:1.5m", 1_500_000),
+        ("token:4.1m", 4_100_000),
+        ("token:16.1k", 16_100),
     ],
 )
 def test_token_shorthand(spec: str, expected: int) -> None:
@@ -73,7 +75,9 @@ def test_token_shorthand(spec: str, expected: int) -> None:
     assert cfg.trigger.every == expected
 
 
-@pytest.mark.parametrize("spec", ["token:500000", "token:0k", "token:0.0001k"])
+@pytest.mark.parametrize(
+    "spec", ["token:500000", "token:0k", "token:0.0001k", "token:1.0001k"]
+)
 def test_bad_token_value(spec: str) -> None:
     with pytest.raises(ValueError, match="token"):
         parse_checkpoint(spec)

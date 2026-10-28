@@ -652,11 +652,16 @@ def test_token_limit_type_defaults_to_all() -> None:
         ("500k", 500_000),
         ("1m", 1_000_000),
         ("1.5m", 1_500_000),
+        ("4.1m", 4_100_000),
+        ("16.1k", 16_100),
+        ("1.07b", 1_070_000_000),
         ("1b", 1_000_000_000),
+        ("9007199254740993", 9_007_199_254_740_993),
         ("0", 0),
         ("all:500k", 500_000),
         ("output:1m", TokenLimit(tokens=1_000_000, type="output")),
         ("OUTPUT:1M", TokenLimit(tokens=1_000_000, type="output")),
+        ("output:8.3m", TokenLimit(tokens=8_300_000, type="output")),
         ("output: 500 k", TokenLimit(tokens=500_000, type="output")),
         (
             "(input*0.1)+output:1m",
@@ -674,7 +679,22 @@ def test_parse_token_limit(value: str, expected: int | TokenLimit) -> None:
 
 @pytest.mark.parametrize(
     "value",
-    ["", "abc", "-5", "output:", "1.5", "1.0001k", "output", "5t", "k", "foo:1m"],
+    [
+        "",
+        "abc",
+        "-5",
+        "output:",
+        "1.5",
+        "1.0001k",
+        "1.00000000000000001k",
+        "1e3",
+        "inf",
+        "nan",
+        "output",
+        "5t",
+        "k",
+        "foo:1m",
+    ],
 )
 def test_parse_token_limit_invalid(value: str) -> None:
     with pytest.raises(ValueError):

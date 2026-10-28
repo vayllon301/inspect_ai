@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import re
 from datetime import timedelta
+from fractions import Fraction
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -114,10 +115,10 @@ def _parse_tokens(value: str, *, error_prefix: str = "tokens") -> int:
     m = _TOKEN_RE.match(value)
     if m is None:
         raise ValueError(f"{error_prefix}: expected <number><k|m|b>, got {value!r}")
-    tokens = float(m.group(1)) * _TOKEN_UNITS[m.group(2).lower()]
+    tokens = Fraction(m.group(1)) * _TOKEN_UNITS[m.group(2).lower()]
     if tokens <= 0:
         raise ValueError(f"{error_prefix}: value must be > 0, got {value!r}")
-    if not tokens.is_integer():
+    if tokens.denominator != 1:
         raise ValueError(
             f"{error_prefix}: must resolve to a whole number of tokens, got {value!r}"
         )

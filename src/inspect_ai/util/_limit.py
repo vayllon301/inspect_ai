@@ -9,6 +9,7 @@ import re
 from contextlib import AbstractContextManager, ExitStack, contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
+from fractions import Fraction
 from types import TracebackType
 from typing import (
     TYPE_CHECKING,
@@ -515,8 +516,8 @@ def parse_token_limit(value: str) -> int | TokenLimit:
             f"token limit: expected [<type>:]<number>[k|m|b], got {value!r}"
         )
     number, unit = m.groups()
-    tokens = float(number) * (_TOKEN_LIMIT_UNITS[unit.lower()] if unit else 1)
-    if not tokens.is_integer():
+    tokens = Fraction(number) * (_TOKEN_LIMIT_UNITS[unit.lower()] if unit else 1)
+    if tokens.denominator != 1:
         raise ValueError(
             f"token limit: must resolve to a whole number of tokens, got {value!r}"
         )
