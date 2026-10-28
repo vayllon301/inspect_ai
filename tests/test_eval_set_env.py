@@ -283,6 +283,26 @@ def test_the_resolver_and_the_cli_reach_the_same_value(
         assert getattr(resolved, field) == from_cli[field], field
 
 
+@pytest.mark.parametrize(
+    ("variable", "field"),
+    [
+        ("INSPECT_EVAL_SAMPLE_SHUFFLE", "sample_shuffle"),
+        ("INSPECT_LOG_SHARED", "log_shared"),
+        ("INSPECT_EVAL_LOG_SHARED", "log_shared"),
+    ],
+)
+def test_one_is_the_integer_where_the_integer_is_a_setting(
+    variable: str, field: str
+) -> None:
+    """`1` is seed 1 and a one-second sync, in both readers, not the bare flag."""
+    resolved = resolve_eval_env({variable: "1"})
+    assert resolved is not None
+    ours = getattr(resolved, field)
+    theirs = _cli_kwargs({variable: "1"})[field]
+    # compare types too: `True == 1`
+    assert (ours, type(ours)) == (theirs, type(theirs)) == (1, int)
+
+
 def test_epochs_carry_their_reducers() -> None:
     """`epochs` is three variables assembled into one value, so it sits outside the table."""
     resolved = resolve_eval_env(

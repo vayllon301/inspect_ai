@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
+import click
 import pytest
 from click.testing import CliRunner, Result
 from pydantic import ValidationError
@@ -777,6 +778,59 @@ def test_eval_retry_cli_preserves_error_flags_from_log():
         for log in logs:
             assert log.eval.config.score_on_error is True
             assert log.eval.config.continue_on_fail is True
+
+
+INTEGER_OR_FLAG_OPTIONS = [
+    (eval_command, "eval", "--sample-shuffle", "1", 1),
+    (eval_command, "eval", "--sample-shuffle", "42", 42),
+    (eval_command, "eval", "--sample-shuffle", "true", True),
+    (eval_set_command, "eval_set", "--sample-shuffle", "1", 1),
+    (eval_command, "eval", "--log-shared", "1", 1),
+    (eval_command, "eval", "--log-shared", "30", 30),
+    (eval_command, "eval", "--log-shared", "true", 10),
+    (eval_set_command, "eval_set", "--log-shared", "1", 1),
+    (eval_retry_command, "eval_retry", "--log-shared", "1", 1),
+]
+
+
+@pytest.mark.parametrize(
+    ("command", "function", "option", "value", "expected"),
+    INTEGER_OR_FLAG_OPTIONS,
+    ids=[f"{f} {o} {v}" for _, f, o, v, _ in INTEGER_OR_FLAG_OPTIONS],
+)
+def test_eval_cli_integer_one_is_a_setting(
+    command: click.Command,
+    function: str,
+    option: str,
+    value: str,
+    expected: bool | int,
+    tmp_path: Path,
+) -> None:
+    """`--sample-shuffle 1` is seed 1 and `--log-shared 1` syncs every second.
+
+    Neither is read as the bare flag (an unseeded shuffle, a 10 second sync).
+    """
+    captured: dict[str, Any] = {}
+
+    def record(*args: Any, **kwargs: Any) -> Any:
+        captured.update(kwargs)
+        return (True, []) if function == "eval_set" else []
+
+    if command is eval_retry_command:
+        target = tmp_path / "2025-01-01T00-00-00+00-00_task_abc123.eval"
+        target.touch()
+    else:
+        target = Path("tests/test_eval_config.py@eval_config_task")
+
+    with patch.object(cli_eval, function, record):
+        result = CliRunner().invoke(
+            command,
+            [target.as_posix(), option, value, "--log-dir", tmp_path.as_posix()],
+        )
+    assert_cli_success(result)
+    reached = captured[option[2:].replace("-", "_")]
+    # compare types too: `True == 1`
+    assert (reached, type(reached)) == (expected, type(expected))
 
 
 @solver

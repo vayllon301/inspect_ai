@@ -111,12 +111,14 @@ def _flag(text: str, variable: str) -> bool:
     )
 
 
-def _int_or_bool(true_value: int) -> Callable[[str, str], int]:
+def _int_or_bool(
+    true_value: int, is_one_true: bool = True
+) -> Callable[[str, str], int]:
     """An option that is a bare flag or an integer (`int_or_bool_flag_callback`)."""
 
     def convert(text: str, variable: str) -> int:
         try:
-            return int_or_bool_value(text.strip(), true_value)
+            return int_or_bool_value(text.strip(), true_value, is_one_true=is_one_true)
         except ValueError:
             raise PrerequisiteError(
                 f"ERROR: {variable}={text!r} is not 'true', 'false', or an integer."
@@ -219,7 +221,7 @@ def _negated(text: str, variable: str) -> bool:
 
 
 def _sample_shuffle(text: str, variable: str) -> bool | int | None:
-    shuffle = _int_or_bool(-1)(text, variable)
+    shuffle = _int_or_bool(-1, is_one_true=False)(text, variable)
     if shuffle == -1:
         return True
     return None if shuffle == 0 else shuffle
@@ -321,7 +323,7 @@ ENV_VARIABLES: dict[str, EnvVariable] = {
     "log_buffer": EnvVariable(("INSPECT_EVAL_LOG_BUFFER",), _integer),
     "log_shared": EnvVariable(
         ("INSPECT_LOG_SHARED", "INSPECT_EVAL_LOG_SHARED"),
-        _int_or_bool(DEFAULT_LOG_SHARED),
+        _int_or_bool(DEFAULT_LOG_SHARED, is_one_true=False),
     ),
     "log_level": EnvVariable(("INSPECT_LOG_LEVEL",), _choice(*LOG_LEVELS)),
     "log_level_transcript": EnvVariable(

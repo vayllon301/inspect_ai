@@ -521,7 +521,7 @@ def eval_options(func: Callable[..., Any]) -> Callable[..., click.Context]:
         is_flag=False,
         flag_value="true",
         default=None,
-        callback=int_or_bool_flag_callback(-1),
+        callback=int_or_bool_flag_callback(-1, is_one_true=False),
         help="Shuffle order of samples (pass a seed to make the order deterministic)",
         envvar=["INSPECT_EVAL_SAMPLE_SHUFFLE"],
     )
@@ -738,7 +738,7 @@ def eval_options(func: Callable[..., Any]) -> Callable[..., click.Context]:
         is_flag=False,
         flag_value="true",
         default=None,
-        callback=int_or_bool_flag_callback(DEFAULT_LOG_SHARED),
+        callback=int_or_bool_flag_callback(DEFAULT_LOG_SHARED, is_one_true=False),
         help=LOG_SHARED_HELP,
         envvar=["INSPECT_LOG_SHARED", "INSPECT_EVAL_LOG_SHARED"],
     )
@@ -2552,7 +2552,7 @@ def parse_comma_separated(value: str | None) -> list[str] | None:
     is_flag=False,
     flag_value="true",
     default=None,
-    callback=int_or_bool_flag_callback(DEFAULT_LOG_SHARED),
+    callback=int_or_bool_flag_callback(DEFAULT_LOG_SHARED, is_one_true=False),
     help=LOG_SHARED_HELP,
     envvar=["INSPECT_LOG_SHARED", "INSPECT_EVAL_LOG_SHARED"],
 )
