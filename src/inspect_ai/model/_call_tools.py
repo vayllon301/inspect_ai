@@ -2387,7 +2387,8 @@ def parse_tool_call(
 
     # otherwise parse it as yaml (which will pickup unquoted strings, numbers, and true/false)
     # and then create a dict that maps it to the first function argument
-    elif function and tools:
+    # (an empty body means no arguments, not a null first argument)
+    elif arguments and function and tools:
         tool_info = next(
             (
                 tool

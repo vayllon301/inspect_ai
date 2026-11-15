@@ -1,6 +1,8 @@
 import logging
 import time
 
+import pytest
+
 from inspect_ai._util.constants import PKG_NAME
 from inspect_ai.model._call_tools import parse_tool_call
 from inspect_ai.tool import ToolInfo, ToolParam, ToolParams
@@ -68,6 +70,26 @@ def test_parse_single_quotes_in_string_tool_call_without_a_dict():
 
     assert "param1" in tool_call.arguments
     assert tool_call.arguments["param1"] == "'"
+
+
+@pytest.mark.parametrize("arguments", [None, "", " \n\t"])
+def test_parse_empty_arguments_as_no_arguments(arguments: str | None) -> None:
+    tool_call = parse_tool_call(
+        "id", "testing_tool", arguments, [testing_tool], type="custom"
+    )
+
+    assert tool_call.id == "id"
+    assert tool_call.function == "testing_tool"
+    assert tool_call.type == "custom"
+    assert tool_call.arguments == {}
+    assert tool_call.parse_error is None
+
+
+def test_parse_explicit_null_maps_to_first_parameter() -> None:
+    tool_call = parse_tool_call("id", "testing_tool", "null", [testing_tool])
+
+    assert tool_call.arguments == {"param1": None}
+    assert tool_call.parse_error is None
 
 
 def test_parse_empty_arguments_with_trailing_quotes():

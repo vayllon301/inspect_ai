@@ -13,7 +13,11 @@ from inspect_ai._util.content import ContentDocument, ContentText
 from inspect_ai._util.exception import TerminateSampleError
 from inspect_ai.event._tool import ToolEvent
 from inspect_ai.log._transcript import Transcript, init_transcript
-from inspect_ai.model._call_tools import MAX_TOOL_CALL_ARGUMENTS_DEPTH, execute_tools
+from inspect_ai.model._call_tools import (
+    MAX_TOOL_CALL_ARGUMENTS_DEPTH,
+    execute_tools,
+    parse_tool_call,
+)
 from inspect_ai.model._chat_message import (
     ChatMessageAssistant,
     ChatMessageTool,
@@ -21,6 +25,7 @@ from inspect_ai.model._chat_message import (
 from inspect_ai.tool import (
     Tool,
     ToolError,
+    ToolInfo,
     ToolParam,
     ToolParams,
     todo_write,
@@ -577,6 +582,54 @@ async def test_default_none_param_not_required():
     assert isinstance(messages[-1], ChatMessageTool)
     assert messages[-1].error is None, f"unexpected tool error: {messages[-1].error}"
     assert messages[-1].content == "q=cats filters=None"
+
+
+@tool
+def all_optional_tool() -> Tool:
+    async def execute(count: int = 3, label: str = "default") -> str:
+        """All-optional tool.
+
+        Args:
+            count: a count.
+            label: a label.
+        """
+        return f"count={count} label={label}"
+
+    return execute
+
+
+def tool_info(tool_def: ToolDef) -> ToolInfo:
+    return ToolInfo(
+        name=tool_def.name,
+        description=tool_def.description,
+        parameters=tool_def.parameters,
+    )
+
+
+@pytest.mark.parametrize("arguments", [None, "", "  "])
+async def test_empty_arguments_execute_with_defaults(arguments: str | None) -> None:
+    tool_def = ToolDef(all_optional_tool())
+    call = parse_tool_call("id", tool_def.name, arguments, [tool_info(tool_def)])
+    messages, _ = await execute_tools(
+        [ChatMessageAssistant(content=[], tool_calls=[call])], [tool_def]
+    )
+
+    assert isinstance(messages[-1], ChatMessageTool)
+    assert messages[-1].error is None, f"unexpected tool error: {messages[-1].error}"
+    assert messages[-1].content == "count=3 label=default"
+
+
+async def test_empty_arguments_missing_required_parameter() -> None:
+    tool_def = ToolDef(incr())
+    call = parse_tool_call("id", tool_def.name, "", [tool_info(tool_def)])
+    messages, _ = await execute_tools(
+        [ChatMessageAssistant(content=[], tool_calls=[call])], [tool_def]
+    )
+
+    assert isinstance(messages[-1], ChatMessageTool)
+    assert messages[-1].error is not None
+    assert messages[-1].error.type == "parsing"
+    assert "'x' is a required property" in messages[-1].error.message
 
 
 @tool
